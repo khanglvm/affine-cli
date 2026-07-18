@@ -19,7 +19,7 @@ test("help and version are available", () => {
 
   const version = run(["--version"]);
   assert.equal(version.status, 0);
-  assert.match(version.stdout, /^0\.1\.0/);
+  assert.match(version.stdout, /^0\.1\.1/);
 });
 
 test("tools can be discovered without a live AFFiNE request", () => {
@@ -40,4 +40,12 @@ test("write gate fails before any API mutation", () => {
   });
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /--perform-action/);
+});
+
+test("usage errors emit one JSON line on stderr", () => {
+  const result = run(["no-such-command"]);
+  assert.equal(result.status, 2);
+  const lines = result.stderr.trim().split("\n");
+  assert.equal(lines.length, 1);
+  assert.equal(JSON.parse(lines[0]).error.code, "USAGE_ERROR");
 });

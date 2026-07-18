@@ -122,6 +122,7 @@ function buildProgram() {
     .option("--inline-max-bytes <n>", "Inline output byte limit", "16000")
     .option("--tmp-dir <path>", "Large-result directory")
     .option("--out <path>", "Write full JSON result to a specific 0600 file")
+    .configureOutput({ writeErr: () => {} })
     .exitOverride();
 
   const profile = program.command("profile").description("Manage secure AFFiNE profiles");

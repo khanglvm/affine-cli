@@ -34,7 +34,7 @@ For several independent calls, use a JSON batch file:
 affine-cli batch --ops-file calls.json --pretty
 ```
 
-Large results are automatically stored under `/tmp/affine-cli-results`; follow the returned `file` path instead of asking the CLI to reprint the payload. Use `--result-mode inline` only when the full result is required in context.
+Large results are automatically stored under the operating system's temporary directory in an `affine-cli-results` folder; follow the returned `file` path instead of asking the CLI to reprint the payload. Use `--result-mode inline` only when the full result is required in context.
 
 ## Safety protocol
 

@@ -5,6 +5,7 @@ import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import { CliError, EXIT } from "./errors.js";
 
 const require = createRequire(import.meta.url);
+const { version } = require("../package.json");
 
 function resolveServerBin() {
   const packageJson = require.resolve("affine-mcp-server/package.json");
@@ -50,7 +51,7 @@ export async function withMcpClient(profile, action) {
     if (diagnostics.join("").length < 8_000) diagnostics.push(String(chunk));
   });
 
-  const client = new Client({ name: "affine-cli", version: "0.1.0" }, { capabilities: {} });
+  const client = new Client({ name: "affine-cli", version }, { capabilities: {} });
   try {
     await client.connect(transport);
     return await action(client);
@@ -98,23 +99,35 @@ export async function invokeTool(profile, name, args, beforeCall) {
   });
 }
 
+export async function preflightBatchOperations(tools, operations, beforeCall) {
+  const byName = new Map(tools.map((tool) => [tool.name, tool]));
+  const prepared = [];
+  for (const [index, operation] of operations.entries()) {
+    const name = operation?.tool;
+    const tool = byName.get(name);
+    if (!tool) {
+      throw new CliError(`Unknown AFFiNE tool '${name}' at batch index ${index}.`, {
+        code: "TOOL_NOT_FOUND",
+        exitCode: EXIT.USAGE,
+        details: { tool: name, index },
+      });
+    }
+    if (beforeCall) await beforeCall(tool, operation, index);
+    prepared.push({ index, name, args: operation.args || {} });
+  }
+  return prepared;
+}
+
 export async function invokeBatch(profile, operations, beforeCall) {
   return withMcpClient(profile, async (client) => {
     const tools = (await client.listTools()).tools || [];
-    const byName = new Map(tools.map((tool) => [tool.name, tool]));
+    // Validate the complete batch before the first API call. This prevents a
+    // later unknown, disabled, or ungated operation from causing hidden
+    // partial mutations.
+    const prepared = await preflightBatchOperations(tools, operations, beforeCall);
     const results = [];
-    for (const [index, operation] of operations.entries()) {
-      const name = operation?.tool;
-      const tool = byName.get(name);
-      if (!tool) {
-        throw new CliError(`Unknown AFFiNE tool '${name}' at batch index ${index}.`, {
-          code: "TOOL_NOT_FOUND",
-          exitCode: EXIT.USAGE,
-          details: { tool: name, index },
-        });
-      }
-      if (beforeCall) await beforeCall(tool, operation, index);
-      const result = await client.callTool({ name, arguments: operation.args || {} });
+    for (const { index, name, args } of prepared) {
+      const result = await client.callTool({ name, arguments: args });
       results.push({ index, tool: name, data: decodeToolResult(result) });
     }
     return results;

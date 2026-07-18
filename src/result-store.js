@@ -36,6 +36,7 @@ export class ResultStore {
     if (outputFile) {
       await fs.mkdir(path.dirname(path.resolve(outputFile)), { recursive: true });
       await fs.writeFile(outputFile, `${serialized}\n`, { mode: 0o600 });
+      await fs.chmod(outputFile, 0o600);
       process.stdout.write(`${JSON.stringify({ ok: true, stored: true, file: path.resolve(outputFile), bytes })}\n`);
       return;
     }
@@ -50,6 +51,7 @@ export class ResultStore {
     const stamp = new Date().toISOString().replace(/[:.]/g, "-");
     const file = path.join(this.tmpDir, `${stamp}-${safeLabel(label)}.json`);
     await fs.writeFile(file, `${serialized}\n`, { mode: 0o600 });
+    await fs.chmod(file, 0o600);
     const envelope = {
       ok: true,
       stored: true,

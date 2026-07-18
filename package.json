@@ -1,6 +1,6 @@
 {
   "name": "@khanglvm/affine-cli",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Agent-optimized CLI for AFFiNE, powered on demand by affine-mcp-server",
   "type": "module",
   "bin": {
