@@ -1,0 +1,4 @@
+interface:
+  display_name: "AFFiNE CLI"
+  short_description: "Operate AFFiNE safely through an agent-first CLI"
+  default_prompt: "Use $affine-cli to search and read my AFFiNE knowledge safely."

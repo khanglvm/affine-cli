@@ -1,0 +1,53 @@
+{
+  "name": "@khanglvm/affine-cli",
+  "version": "0.1.0",
+  "description": "Agent-optimized CLI for AFFiNE, powered on demand by affine-mcp-server",
+  "type": "module",
+  "bin": {
+    "affine-cli": "bin/affine-cli.js",
+    "affine-agent": "bin/affine-cli.js"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "skills/",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "scripts": {
+    "check": "node ./bin/affine-cli.js --help",
+    "test": "node --test ./test/**/*.test.js",
+    "pack:check": "npm pack --dry-run",
+    "ci": "npm test && npm run check && npm run pack:check",
+    "prepublishOnly": "npm run ci"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/khanglvm/affine-cli.git"
+  },
+  "bugs": {
+    "url": "https://github.com/khanglvm/affine-cli/issues"
+  },
+  "homepage": "https://github.com/khanglvm/affine-cli#readme",
+  "keywords": [
+    "affine",
+    "cli",
+    "agent",
+    "mcp",
+    "knowledge-base"
+  ],
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.17.2",
+    "@napi-rs/keyring": "^1.2.0",
+    "affine-mcp-server": "^2.5.0",
+    "commander": "^13.1.0"
+  }
+}
