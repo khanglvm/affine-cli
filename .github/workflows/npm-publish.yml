@@ -1,0 +1,90 @@
+name: Publish npm package
+
+on:
+  push:
+    branches: [main]
+    paths: [package.json]
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Validate the release without publishing
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: npm-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'khanglvm/affine-cli' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install npm with trusted publishing support
+        run: npm install --global npm@11
+      - name: Check version and registry
+        id: release
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          import { execFileSync, spawnSync } from 'node:child_process';
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          const { name, version } = pkg;
+          if (!name || !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.test(version)) {
+            throw new Error('package.json must contain a package name and semantic version');
+          }
+          let changed = true;
+          if (process.env.GITHUB_REF_TYPE === 'tag') {
+            if (process.env.GITHUB_REF_NAME !== `v${version}`) throw new Error('Tag must match package.json version');
+          } else if (process.env.GITHUB_EVENT_NAME === 'push') {
+            const before = process.env.BEFORE_SHA;
+            if (before && !/^0+$/.test(before)) {
+              const previous = JSON.parse(execFileSync('git', ['show', `${before}:package.json`], { encoding: 'utf8' }));
+              changed = previous.version !== version;
+            }
+          }
+          const lookup = spawnSync('npm', ['view', `${name}@${version}`, 'version', '--json', '--registry=https://registry.npmjs.org/'], { encoding: 'utf8' });
+          let result;
+          try { result = JSON.parse(lookup.stdout); } catch { throw new Error('Registry lookup did not return JSON; refusing to publish'); }
+          let exists;
+          if (lookup.status === 0) {
+            if (result !== version) throw new Error('Registry returned an unexpected version');
+            exists = true;
+          } else if (result.error?.code === 'E404') {
+            exists = false;
+          } else {
+            throw new Error(`Registry lookup failed (${result.error?.code || lookup.status}); refusing to publish`);
+          }
+          const tag = version.split('+')[0].includes('-') ? 'next' : 'latest';
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `changed=${changed}\nexists=${exists}\ntag=${tag}\n`);
+          console.log(`${name}@${version}: changed=${changed}, exists=${exists}, dist-tag=${tag}`);
+          JS
+      - name: Install dependencies
+        run: npm ci
+      - name: Verify package
+        run: |
+          npm run prepublishOnly
+      - name: Check package contents
+        run: npm pack --dry-run --ignore-scripts
+      - name: Dry-run publication
+        if: github.event_name == 'workflow_dispatch' && inputs.dry_run
+        run: npm publish --dry-run --ignore-scripts --access public --tag '${{ steps.release.outputs.tag }}' --registry=https://registry.npmjs.org/
+      - name: Publish with npm trusted publishing
+        if: steps.release.outputs.changed == 'true' && steps.release.outputs.exists == 'false' && (github.event_name != 'workflow_dispatch' || !inputs.dry_run)
+        run: npm publish --ignore-scripts --access public --provenance --tag '${{ steps.release.outputs.tag }}' --registry=https://registry.npmjs.org/
